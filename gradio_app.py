@@ -222,17 +222,49 @@ def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages):
 {stdout}
         """
 
-    # Find output file
+    # Find output file (handle both flat file and directory structures)
     output_dir_path = Path(output_dir)
     pdf_name = Path(pdf_path).stem
-    output_file = output_dir_path / pdf_name / "index.html"
 
-    if not output_file.exists():
+    # Try directory structure first (batch mode)
+    output_file = output_dir_path / pdf_name / "index.html"
+    if output_file.exists():
+        file_size = output_file.stat().st_size / 1024
         return f"""
+✅ Conversion complete!
+
+📄 Input: `{pdf_path}`
+📁 Output: `{output_file}`
+📊 Size: {file_size:.1f} KB
+
+📝 Log:
+{stdout}
+        """
+
+    # Try flat file structure (single file mode)
+    output_file = output_dir_path / f"{pdf_name}.html"
+    if output_file.exists():
+        file_size = output_file.stat().st_size / 1024
+        return f"""
+✅ Conversion complete!
+
+📄 Input: `{pdf_path}`
+📁 Output: `{output_file}`
+📊 Size: {file_size:.1f} KB
+
+📝 Log:
+{stdout}
+        """
+
+    # File not found
+    return f"""
 ❌ Output file not found!
 
 📄 Input: `{pdf_path}`
-📁 Expected output: `{output_file}`
+📁 Expected output: `{output_dir_path / pdf_name / "index.html"}` or `{output_dir_path / f"{pdf_name}.html"}`
+
+Files in output directory:
+{list(output_dir_path.iterdir())}
 
 This could mean:
 1. Conversion failed silently
@@ -244,19 +276,6 @@ This could mean:
 
 🔴 Error output:
 {stderr}
-        """
-
-    file_size = output_file.stat().st_size / 1024
-
-    return f"""
-✅ Conversion complete!
-
-📄 Input: `{pdf_path}`
-📁 Output: `{output_file}`
-📊 Size: {file_size:.1f} KB
-
-📝 Log:
-{stdout}
         """
 
 def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
