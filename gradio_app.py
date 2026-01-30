@@ -196,11 +196,7 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
         convert_batch_btn.click(
             fn=lambda f, d, ni, nt, kt: handle_batch(f, d, ni, nt, kt, False),
             inputs=[folder_input, output_dir_batch, no_images_batch, no_toc_batch, keep_toc_pages_batch],
-            outputs=[status_output, download_file]
-        )
-
-        download_btn.click(
-            fn=lambda: None,  # No change to status, just shows download button
+        # Download button removed - click not needed
             outputs=[status_output]
         )
 
@@ -277,7 +273,7 @@ def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages, retu
 📝 Log:
 {stdout}
 
-📥 Click "Download Converted File" button below to download the result!
+📥 Download ready! The file component below shows the converted HTML for download.!
         """
 
         if return_file:
