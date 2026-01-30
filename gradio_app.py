@@ -180,9 +180,7 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
                 visible=False
             )
 
-            with gr.Row():
-                download_btn = gr.Button("📥 Download Converted File", variant="secondary", size="lg")
-                clear_btn = gr.Button("🗑️ Clear", variant="secondary")
+            clear_btn = gr.Button("🗑️ Clear", variant="secondary")
 
         # Event handlers
         convert_btn.click(
@@ -200,12 +198,6 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
         clear_btn.click(
             fn=lambda: ("", None),
             outputs=[status_output, download_file]
-        )
-
-        # Download button just shows the status (file component updates from conversion)
-        download_btn.click(
-            fn=lambda: status_output,
-            outputs=[status_output]
         )
 
     return demo
@@ -276,7 +268,7 @@ def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages, retu
 📝 Log:
 {stdout}
 
-📥 Click "Download Converted File" button below to download the HTML file.
+📥 Your converted HTML file is ready to download. Click the file name above to download it to your computer.
         """
 
         if return_file:
@@ -328,7 +320,7 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages, ret
         return f"❌ Folder not found: {folder}", None
 
     # Run conversion
-    stdout, stderr, returncode = convert_folder(folder_path, output_dir, no_images, no_toc, keep_toc_pages)
+    stdout, stderr, returncode = convert_folder(folder, output_dir, no_images, no_toc, keep_toc_pages)
 
     if returncode != 0:
         return f"""
@@ -362,14 +354,14 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages, ret
 📝 Log:
 {stdout}
 
-📥 Download individual files from the output directory.
+📥 Browse your output directory to download the HTML files.
         """, None
     else:
         return f"""
 ❌ No HTML files found in output directory!
 
 📁 Input folder: {folder}
-📁 Output directory: {output_dir}
+📁 Output directory: `{output_dir_path}`
 
 📝 Command output:
 {stdout}
