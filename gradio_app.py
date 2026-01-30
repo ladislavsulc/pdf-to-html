@@ -31,6 +31,9 @@ def convert_pdf(pdf_path, output_dir, no_images=False, no_toc=False, keep_toc_pa
     # Ensure output directory is absolute
     output_dir = os.path.abspath(output_dir)
 
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
     cmd = [sys.executable, CONVERTER_SCRIPT, pdf_path, "--out", output_dir]
 
     # Add custom flags
