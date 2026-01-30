@@ -23,16 +23,15 @@ except ImportError:
     sys.exit(1)
 
 # Constants
-DEFAULT_OUTPUT_DIR = "out"
+DEFAULT_OUTPUT_DIR = "/home/clawdbot/clawd/pdf-to-html/out"
 CONVERTER_SCRIPT = "/home/clawdbot/clawd/pdf-to-html-fork/scripts/pdf_to_semantic_html.py"
 
 def convert_pdf(pdf_path, output_dir, no_images=False, no_toc=False, keep_toc_pages=False):
     """Run pdf_to_semantic_html.py with custom options."""
-    cmd = [sys.executable, CONVERTER_SCRIPT, pdf_path]
+    # Ensure output directory is absolute
+    output_dir = os.path.abspath(output_dir)
 
-    # Add output directory
-    if output_dir:
-        cmd.extend(["--out", output_dir])
+    cmd = [sys.executable, CONVERTER_SCRIPT, pdf_path, "--out", output_dir]
 
     # Add custom flags
     if no_images:
@@ -44,31 +43,34 @@ def convert_pdf(pdf_path, output_dir, no_images=False, no_toc=False, keep_toc_pa
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return result.stdout
+        return result.stdout, result.stderr, 0
     except subprocess.CalledProcessError as e:
-        return f"Error: {e}"
+        return e.stdout, e.stderr, e.returncode
 
 def convert_folder(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
     """Convert all PDFs in a folder."""
+    # Ensure output directory is absolute
+    output_dir = os.path.abspath(output_dir)
+
+    cmd = [
+        sys.executable, CONVERTER_SCRIPT, folder_path,
+        "--out", output_dir,
+        "--batch",
+        "--recursive"
+    ]
+
+    if no_images:
+        cmd.append("--no-images")
+    if no_toc:
+        cmd.append("--no-toc")
+    if keep_toc_pages:
+        cmd.append("--keep-toc-pages")
+
     try:
-        cmd = [
-            sys.executable, CONVERTER_SCRIPT, folder_path,
-            "--out", output_dir,
-            "--batch",
-            "--recursive"
-        ]
-
-        if no_images:
-            cmd.append("--no-images")
-        if no_toc:
-            cmd.append("--no-toc")
-        if keep_toc_pages:
-            cmd.append("--keep-toc-pages")
-
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return result.stdout
+        return result.stdout, result.stderr, 0
     except subprocess.CalledProcessError as e:
-        return f"Error: {e}"
+        return e.stdout, e.stderr, e.returncode
 
 def create_ui():
     """Create Gradio interface."""
@@ -91,8 +93,8 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
 
                 output_dir = gr.Textbox(
                     label="📁 Output directory",
-                    placeholder="out",
-                    value="out"
+                    placeholder="/home/clawdbot/clawd/pdf-to-html/out",
+                    value="/home/clawdbot/clawd/pdf-to-html/out"
                 )
 
             with gr.Row():
@@ -124,8 +126,8 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
             with gr.Row():
                 output_dir_batch = gr.Textbox(
                     label="📁 Output directory",
-                    placeholder="out",
-                    value="out"
+                    placeholder="/home/clawdbot/clawd/pdf-to-html/out",
+                    value="/home/clawdbot/clawd/pdf-to-html/out"
                 )
 
             with gr.Row():
@@ -191,24 +193,59 @@ def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages):
     # Get file path
     pdf_path = pdf_file.name
 
-    result = convert_pdf(pdf_path, output_dir, no_images, no_toc, keep_toc_pages)
+    # Run conversion
+    stdout, stderr, returncode = convert_pdf(pdf_path, output_dir, no_images, no_toc, keep_toc_pages)
 
-    if result.startswith("Error"):
-        return f"❌ {result}"
-    else:
-        # Find output file
-        output_dir_path = output_dir.rstrip('/')
-        pdf_name = Path(pdf_path).stem
-        output_file = Path(output_dir_path) / pdf_name / "index.html"
-
+    if returncode != 0:
         return f"""
+❌ Conversion failed!
+
+📄 Input: `{pdf_path}`
+📁 Output dir: `{output_dir}`
+🔴 Exit code: {returncode}
+
+❓ Error output:
+{stderr}
+
+📝 Standard output:
+{stdout}
+        """
+
+    # Find output file
+    output_dir_path = Path(output_dir)
+    pdf_name = Path(pdf_path).stem
+    output_file = output_dir_path / pdf_name / "index.html"
+
+    if not output_file.exists():
+        return f"""
+❌ Output file not found!
+
+📄 Input: `{pdf_path}`
+📁 Expected output: `{output_file}`
+
+This could mean:
+1. Conversion failed silently
+2. Output file is in a different location
+3. Output directory permission issue
+
+📝 Command output:
+{stdout}
+
+🔴 Error output:
+{stderr}
+        """
+
+    file_size = output_file.stat().st_size / 1024
+
+    return f"""
 ✅ Conversion complete!
 
 📄 Input: `{pdf_path}`
 📁 Output: `{output_file}`
-📊 Size: {output_file.stat().st_size / 1024:.1f} KB
+📊 Size: {file_size:.1f} KB
+
 📝 Log:
-{result}
+{stdout}
         """
 
 def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
@@ -221,26 +258,38 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
     if not os.path.isdir(folder):
         return f"❌ Folder not found: {folder}"
 
-    try:
-        pdf_count = len([f for f in Path(folder).rglob("*") if f.is_file() and f.suffix.lower() == '.pdf'])
+    # Run conversion
+    stdout, stderr, returncode = convert_folder(folder, output_dir, no_images, no_toc, keep_toc_pages)
 
-        result = convert_folder(folder, output_dir, no_images, no_toc, keep_toc_pages)
+    if returncode != 0:
+        return f"""
+❌ Batch conversion failed!
 
-        if result.startswith("Error"):
-            return f"❌ {result}"
-        else:
-            return f"""
+📁 Input folder: `{folder}`
+📁 Output dir: `{output_dir}`
+🔴 Exit code: {returncode}
+
+❓ Error output:
+{stderr}
+
+📝 Standard output:
+{stdout}
+        """
+
+    # Count files in output
+    output_dir_path = Path(output_dir)
+    html_files = list(output_dir_path.glob("**/index.html"))
+
+    return f"""
 ✅ Batch conversion complete!
 
 📁 Folder: {folder}
-📊 Processed: {pdf_count} files
 📁 Output: {output_dir}
-📝 Log:
-{result}
-            """
+📊 Generated: {len(html_files)} HTML files
 
-    except Exception as e:
-        return f"❌ Batch error: {e}"
+📝 Log:
+{stdout}
+        """
 
 def verify_converter():
     """Check if converter script exists."""
