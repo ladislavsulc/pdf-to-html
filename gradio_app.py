@@ -15,6 +15,7 @@ Features:
 import os
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -35,6 +36,9 @@ if 'PYTHONPATH' in ENV:
     ENV['PYTHONPATH'] = USER_SITE + ':' + ENV['PYTHONPATH']
 else:
     ENV['PYTHONPATH'] = USER_SITE
+
+# Global to track last converted file
+LAST_CONVERTED_FILE = None
 
 def convert_pdf(pdf_path, output_dir, no_images=False, no_toc=False, keep_toc_pages=False):
     """Run pdf_to_semantic_html.py with custom options."""
@@ -172,36 +176,45 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
                 max_lines=20
             )
 
-            download_file = gr.File(
-                label="📁 Download",
-                visible=False
-            )
+            download_btn = gr.Button("📥 Download Converted File", variant="secondary", size="lg")
+
+        download_file = gr.File(
+            label="📁 Download",
+            visible=False
+        )
 
         with gr.Row():
             clear_btn = gr.Button("🗑️ Clear", variant="secondary")
 
         # Event handlers
         convert_btn.click(
-            fn=lambda f, d, ni, nt, kt: handle_convert(f, d, ni, nt, kt),
+            fn=lambda f, d, ni, nt, kt: handle_convert(f, d, ni, nt, kt, False),
             inputs=[pdf_input, output_dir, no_images, no_toc, keep_toc_pages],
             outputs=[status_output, download_file]
         )
 
         convert_batch_btn.click(
-            fn=lambda f, d, ni, nt, kt: handle_batch(f, d, ni, nt, kt),
+            fn=lambda f, d, ni, nt, kt: handle_batch(f, d, ni, nt, kt, False),
             inputs=[folder_input, output_dir_batch, no_images_batch, no_toc_batch, keep_toc_pages_batch],
             outputs=[status_output, download_file]
         )
 
+        download_btn.click(
+            fn=lambda: None,  # No change to status, just shows download button
+            outputs=[status_output]
+        )
+
         clear_btn.click(
-            fn=lambda: ("", None),
+            fn=lambda: ("", None, ""),
             outputs=[status_output, download_file]
         )
 
     return demo
 
-def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages):
+def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages, return_file=False):
     """Handle single PDF conversion."""
+    global LAST_CONVERTED_FILE
+
     if not pdf_file:
         return "❌ No PDF file selected", None
 
@@ -264,17 +277,20 @@ def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages):
 📝 Log:
 {stdout}
 
-📥 Download ready! File is shown below.
+📥 Click "Download Converted File" button below to download the result!
         """
 
-        # Return status text and file path for Gradio
-        return status_text, str(output_file)
-    else:
-        # File not found - show all files for debugging
-        all_files = list(output_dir_path.iterdir()) if output_dir_path.exists() else []
-        files_list = "\n".join(f"  - {f.name}" for f in all_files[:20])
+        if return_file:
+            # Create a downloadable file component
+            return status_text, gr.File(value=str(output_file), visible=True, label=f"Download: {output_file.name}")
+        else:
+            return status_text, gr.File(value=str(output_file), visible=False)
 
-        return f"""
+    # File not found - show all files for debugging
+    all_files = list(output_dir_path.iterdir()) if output_dir_path.exists() else []
+    files_list = "\n".join(f"  - {f.name}" for f in all_files[:20])
+
+    return f"""
 ❌ Output file not found!
 
 📄 Input: `{pdf_path}`
@@ -298,10 +314,12 @@ This could mean:
 
 🔴 Error output:
 {stderr}
-        """, None
+    """, None
 
-def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
+def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages, return_file=False):
     """Handle batch folder conversion."""
+    global LAST_CONVERTED_FILE
+
     if not folder_path:
         return "❌ No folder path provided", None
 
@@ -332,7 +350,10 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
     output_dir_path = Path(output_dir)
     html_files = list(output_dir_path.glob("**/index.html"))
 
-    return f"""
+    if html_files:
+        LAST_CONVERTED_FILE = str(output_dir_path)
+
+        return f"""
 ✅ Batch conversion complete!
 
 📁 Folder: {folder}
@@ -342,8 +363,21 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
 📝 Log:
 {stdout}
 
-📥 For batch conversions, browse the output directory to download files.
-    """, None
+📥 Download individual files from the output directory if needed.
+        """, None
+    else:
+        return f"""
+❌ No HTML files found in output directory!
+
+📁 Input folder: {folder}
+📁 Output directory: {output_dir}
+
+📝 Command output:
+{stdout}
+
+🔴 Error output:
+{stderr}
+        """, None
 
 def verify_converter():
     """Check if converter script exists."""
