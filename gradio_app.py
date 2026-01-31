@@ -17,16 +17,14 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-try:
-    import gradio as gr
-    print(f"Gradio version: {gradio.__version__}")
-except ImportError:
-    print("Error: gradio not found. Install with: pip install gradio")
-    sys.exit(1)
+import gradio as gr
+
+print(f"Gradio version: {gr.__version__}")
 
 # Constants
-DEFAULT_OUTPUT_DIR = "/home/clawdbot/clawd/pdf-to-html/out"
-CONVERTER_SCRIPT = "/home/clawdbot/clawd/pdf-to-html-fork/scripts/pdf_to_semantic_html.py"
+REPO_ROOT = Path(__file__).resolve().parent
+DEFAULT_OUTPUT_DIR = str(REPO_ROOT / "out")
+CONVERTER_SCRIPT = str(REPO_ROOT / "scripts" / "pdf_to_semantic_html.py")
 
 # Set up environment with user's site-packages
 ENV = os.environ.copy()
@@ -35,9 +33,6 @@ if 'PYTHONPATH' in ENV:
     ENV['PYTHONPATH'] = USER_SITE + ':' + ENV['PYTHONPATH']
 else:
     ENV['PYTHONPATH'] = USER_SITE
-
-# Global to track last converted file
-LAST_CONVERTED_FILE = None
 
 def convert_pdf(pdf_path, output_dir, no_images=False, no_toc=False, keep_toc_pages=False):
     """Run pdf_to_semantic_html.py with custom options."""
@@ -89,8 +84,12 @@ def create_ui():
         gr.Markdown(
             """
 ## 📄 PDF to Semantic HTML Converter
-
 Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schema.org metadata.
+
+**Quick steps**
+1. Upload a PDF (or provide a folder for batch conversion).
+2. Choose an output folder (defaults to `./out`).
+3. Click **Convert** and download the resulting HTML.
             """
         )
 
@@ -102,30 +101,33 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
                     file_count="single"
                 )
 
-                output_dir = gr.Textbox(
-                    label="📁 Output directory",
-                    placeholder="/home/clawdbot/clawd/pdf-to-html/out",
-                    value="/home/clawdbot/clawd/pdf-to-html/out"
-                )
+                with gr.Column():
+                    output_dir = gr.Textbox(
+                        label="📁 Output directory",
+                        placeholder=DEFAULT_OUTPUT_DIR,
+                        value=DEFAULT_OUTPUT_DIR
+                    )
+                    gr.Markdown("Converted HTML will be saved here and exposed for download below.")
 
-            with gr.Row():
-                no_images = gr.Checkbox(
-                    label="🚫 Skip images",
-                    value=False,
-                    info="Don't extract images from PDF"
-                )
+            with gr.Accordion("Advanced options", open=False):
+                with gr.Row():
+                    no_images = gr.Checkbox(
+                        label="🚫 Skip images",
+                        value=False,
+                        info="Don't extract images from PDF"
+                    )
 
-                no_toc = gr.Checkbox(
-                    label="🚫 Skip Table of Contents",
-                    value=False,
-                    info="Don't generate TOC"
-                )
+                    no_toc = gr.Checkbox(
+                        label="🚫 Skip Table of Contents",
+                        value=False,
+                        info="Don't generate TOC"
+                    )
 
-                keep_toc_pages = gr.Checkbox(
-                    label="📄 Keep original TOC pages",
-                    value=False,
-                    info="Include PDF TOC pages in output"
-                )
+                    keep_toc_pages = gr.Checkbox(
+                        label="📄 Keep original TOC pages",
+                        value=False,
+                        info="Include PDF TOC pages in output"
+                    )
 
             with gr.Row():
                 convert_btn = gr.Button("🔄 Convert", variant="primary", size="lg")
@@ -140,14 +142,15 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
             with gr.Row():
                 output_dir_batch = gr.Textbox(
                     label="📁 Output directory",
-                    placeholder="/home/clawdbot/clawd/pdf-to-html/out",
-                    value="/home/clawdbot/clawd/pdf-to-html/out"
+                    placeholder=DEFAULT_OUTPUT_DIR,
+                    value=DEFAULT_OUTPUT_DIR
                 )
 
-            with gr.Row():
-                no_images_batch = gr.Checkbox(label="🚫 Skip images", value=False)
-                no_toc_batch = gr.Checkbox(label="🚫 Skip Table of Contents", value=False)
-                keep_toc_pages_batch = gr.Checkbox(label="📄 Keep original TOC pages", value=False)
+            with gr.Accordion("Advanced options", open=False):
+                with gr.Row():
+                    no_images_batch = gr.Checkbox(label="🚫 Skip images", value=False)
+                    no_toc_batch = gr.Checkbox(label="🚫 Skip Table of Contents", value=False)
+                    keep_toc_pages_batch = gr.Checkbox(label="📄 Keep original TOC pages", value=False)
 
             with gr.Row():
                 convert_batch_btn = gr.Button("📦 Batch Convert", variant="primary", size="lg")
@@ -156,16 +159,17 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
             status_output = gr.Textbox(
                 label="⏳ Status",
                 lines=10,
-                max_lines=20
+                max_lines=20,
+                elem_id="status-box"
             )
 
             clear_btn = gr.Button("🗑️ Clear", variant="secondary")
 
-        # Download file component - SEPARATE, always visible
-        download_file = gr.File(
-            label="📥 Download Converted HTML File",
-            visible=True  # Always visible for now (testing)
-        )
+        with gr.Row():
+            download_file = gr.File(
+                label="📥 Download Converted HTML File",
+                visible=False
+            )
 
         # Event handlers
         convert_btn.click(
@@ -181,7 +185,7 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
         )
 
         clear_btn.click(
-            fn=lambda: ("", gr.File(label="📥 Download Converted HTML File", visible=False)),
+            fn=lambda: ("", gr.File.update(value=None, visible=False)),
             outputs=[status_output, download_file]
         )
 
@@ -190,56 +194,103 @@ Convert PDFs to clean, SEO-optimized HTML with headings, TOC, figures, and schem
 def handle_convert(pdf_file, output_dir, no_images, no_toc, keep_toc_pages):
     """Handle single PDF conversion."""
     if not pdf_file:
-        return "❌ No PDF file selected", None
+        return "❌ No PDF file selected", gr.File.update(value=None, visible=False)
 
     pdf_path = pdf_file.name
     stdout, stderr, returncode = convert_pdf(pdf_path, output_dir, no_images, no_toc, keep_toc_pages)
 
     if returncode != 0:
-        return f"❌ Conversion failed!\n📄 Input: `{pdf_path}`\n📁 Output dir: `{output_dir}`\n🔴 Exit code: {returncode}\n❓ Error output:\n{stderr}\n📝 Standard output:\n{stdout}", None
+        return (
+            "❌ Conversion failed!\n"
+            f"📄 Input: `{pdf_path}`\n"
+            f"📁 Output dir: `{output_dir}`\n"
+            f"🔴 Exit code: {returncode}\n"
+            f"❓ Error output:\n{stderr}\n"
+            f"📝 Standard output:\n{stdout}"
+        ), gr.File.update(value=None, visible=False)
 
     output_dir_path = Path(output_dir)
     pdf_name = Path(pdf_path).stem
-    output_file = None
-
-    for f in output_dir_path.glob(f"{pdf_name}*.html"):
-        output_file = f
-        break
+    output_files = sorted(
+        output_dir_path.glob(f"{pdf_name}*.html"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True
+    )
+    output_file = output_files[0] if output_files else None
 
     if output_file:
-        LAST_CONVERTED_FILE = str(output_file)
         file_size = output_file.stat().st_size / 1024
-        status_text = f"✅ Conversion complete!\n\n📄 Input: `{pdf_path}`\n📁 Output: `{output_file}`\n📊 Size: {file_size:.1f} KB\n\n📝 Log:\n{stdout}\n\n📥 File ready for download below!"
+        status_text = (
+            "✅ Conversion complete!\n\n"
+            f"📄 Input: `{pdf_path}`\n"
+            f"📁 Output: `{output_file}`\n"
+            f"📊 Size: {file_size:.1f} KB\n\n"
+            f"📝 Log:\n{stdout}\n\n"
+            "📥 File ready for download below!"
+        )
 
-        # Return status and a gr.File object
-        return status_text, gr.File(value=str(output_file))
+        return status_text, gr.File.update(value=str(output_file), visible=True)
     else:
-        return f"❌ Output file not found!\n\n📄 Input: `{pdf_path}`\n📁 Output directory: `{output_dir_path}`\n\nSearched for: {pdf_name}*.html", None
+        return (
+            "❌ Output file not found!\n\n"
+            f"📄 Input: `{pdf_path}`\n"
+            f"📁 Output directory: `{output_dir_path}`\n\n"
+            f"Searched for: {pdf_name}*.html"
+        ), gr.File.update(value=None, visible=False)
 
 def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
     """Handle batch folder conversion."""
     if not folder_path:
-        return "❌ No folder path provided", None
+        return "❌ No folder path provided", gr.File.update(value=None, visible=False)
 
     folder = folder_path.strip()
 
     if not os.path.isdir(folder):
-        return f"❌ Folder not found: {folder}", None
+        return f"❌ Folder not found: {folder}", gr.File.update(value=None, visible=False)
 
     stdout, stderr, returncode = convert_folder(folder_path, output_dir, no_images, no_toc, keep_toc_pages)
 
     if returncode != 0:
-        return f"❌ Batch conversion failed!\n\n📁 Input folder: `{folder}`\n📁 Output dir: `{output_dir}`\n🔴 Exit code: {returncode}\n❓ Error output:\n{stderr}\n📝 Standard output:\n{stdout}", None
+        return (
+            "❌ Batch conversion failed!\n\n"
+            f"📁 Input folder: `{folder}`\n"
+            f"📁 Output dir: `{output_dir}`\n"
+            f"🔴 Exit code: {returncode}\n"
+            f"❓ Error output:\n{stderr}\n"
+            f"📝 Standard output:\n{stdout}"
+        ), gr.File.update(value=None, visible=False)
 
     output_dir_path = Path(output_dir)
     html_files = list(output_dir_path.glob("**/index.html"))
 
     if html_files:
-        return f"✅ Batch conversion complete!\n\n📁 Folder: {folder}\n📁 Output: {output_dir}\n📊 Generated: {len(html_files)} HTML files\n\n📝 Log:\n{stdout}\n\n📥 Browse output directory for individual files", None
+        return (
+            "✅ Batch conversion complete!\n\n"
+            f"📁 Folder: {folder}\n"
+            f"📁 Output: {output_dir}\n"
+            f"📊 Generated: {len(html_files)} HTML files\n\n"
+            f"📝 Log:\n{stdout}\n\n"
+            "📥 Browse output directory for individual files"
+        ), gr.File.update(value=None, visible=False)
     else:
-        return f"❌ No HTML files found in output directory!\n\n📁 Input folder: {folder}\n📁 Output directory: `{output_dir_path}`\n📝 Log:\n{stdout}\n❓ Error output:\n{stderr}", None
+        return (
+            "❌ No HTML files found in output directory!\n\n"
+            f"📁 Input folder: {folder}\n"
+            f"📁 Output directory: `{output_dir_path}`\n"
+            f"📝 Log:\n{stdout}\n"
+            f"❓ Error output:\n{stderr}"
+        ), gr.File.update(value=None, visible=False)
 
 if __name__ == "__main__":
     print(f"✅ Converter found: {CONVERTER_SCRIPT}")
     demo = create_ui()
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, show_error=True)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        show_error=True,
+        theme=gr.themes.Soft(),
+        css="""
+        #status-box textarea {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+        """
+    )
