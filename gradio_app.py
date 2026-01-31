@@ -80,12 +80,7 @@ def convert_folder(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
 
 def create_ui():
     """Create Gradio interface."""
-    with gr.Blocks(
-        theme=gr.themes.Soft(),
-        css="""
-        #status-box textarea {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-        """
-    ) as demo:
+    with gr.Blocks() as demo:
         gr.Markdown(
             """
 ## 📄 PDF to Semantic HTML Converter
@@ -289,4 +284,13 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
 if __name__ == "__main__":
     print(f"✅ Converter found: {CONVERTER_SCRIPT}")
     demo = create_ui()
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False, show_error=True)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        show_error=True,
+        theme=gr.themes.Soft(),
+        css="""
+        #status-box textarea {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+        """
+    )
