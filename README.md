@@ -1,6 +1,6 @@
 # PDF to Semantic HTML
 
-CLI script to convert PDFs (including scientific studies) into semantic HTML suitable for SEO and AI search references. The output is a clean HTML document with headings, TOC, figures, and schema.org JSON-LD.
+CLI + Gradio app to convert PDFs (including scientific studies) into semantic HTML suitable for SEO and AI search references. Output includes headings, TOC, figures, and schema.org JSON-LD.
 
 ## Setup
 
@@ -71,7 +71,7 @@ python scripts/pdf_to_semantic_html.py file.pdf --metadata metadata.json
 
 ## 🎨 Gradio Web App
 
-**New!** Drag-and-drop web interface with live preview!
+Drag-and-drop web interface for single-file and batch conversion.
 
 ### Launch the App
 
@@ -87,21 +87,41 @@ The app will open at: **http://localhost:7860**
 
 ### Features
 
-- 📤 **Drag and drop** - Upload PDF files directly
-- 📁 **Batch processing** - Select a folder containing multiple PDFs
-- 🎯 **Custom options** - Body-only, skip TOC, multiple themes
-- 👁 **Live preview** - See results instantly in browser
-- 📋 **Copy CLI** - Get the command for automation
-- 🚀 **Deploy to Vercel** - One-click deployment instructions
+- 📤 **Single PDF upload** - Convert one uploaded PDF
+- 📁 **Batch folder mode** - Convert all PDFs in a folder path
+- ⚙️ **Options** - `--no-images`, `--no-toc`, `--keep-toc-pages`
+- 📦 **Download support** - Returns HTML, or ZIP (HTML + images) when images exist
+- 📝 **Detailed status logs** - Command output and errors shown in UI
 
 ### Quick Start
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed Gradio setup and deployment instructions.
+- Local app usage: [QUICKSTART.md](QUICKSTART.md)
+- VPS/proxy deployment notes: [DEPLOYMENT.md](DEPLOYMENT.md)
+
+### Production Environment Variables
+
+The app supports reverse-proxy friendly runtime settings:
+
+- `PUBLIC_ROOT_URL` (for public base URL, e.g. `https://pdf.zoid.bot`)
+- `GRADIO_SERVER_NAME` (defaults to `0.0.0.0`)
+- `GRADIO_ROOT_PATH` (optional root path)
+
+Note: do not set `GRADIO_ROOT_PATH=/gradio_api` as app `root_path`; that path is used by Gradio internal API routes and can cause startup probe failures.
 
 ## Output
 
-- `out/<pdf-name>/index.html` (batch mode)
-- `out/<pdf-name>/images/` for extracted figures
+CLI output behavior:
+
+- Single mode (default): `out/<pdf-name>.html`
+- Single mode (`--out some/file.html`): writes exactly to that file
+- Batch mode: `out/<pdf-name>/index.html`
+- Extracted images: `<html-parent>/images/`
+
+Gradio app behavior:
+
+- Single upload: finds latest `<pdf-name>*.html` in output dir and exposes download
+- If images exist next to HTML, download becomes `<pdf-name>_with_images.zip`
+- Batch mode: reports generated files in status output (downloads are not bundled in batch tab)
 
 ## Notes
 
