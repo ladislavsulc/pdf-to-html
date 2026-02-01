@@ -12,32 +12,32 @@ pip install -r requirements.txt
 
 ## Usage
 
-Single PDF:
+### Single PDF
 
 ```bash
 python scripts/pdf_to_semantic_html.py "/path/to/file.pdf" --out out
 ```
 
-Batch directory:
+### Batch Directory
 
 ```bash
 python scripts/pdf_to_semantic_html.py "/path/to/pdfs" --out out --batch --recursive
 ```
 
-Skip images or TOC:
+### Skip Images or TOC
 
 ```bash
 python scripts/pdf_to_semantic_html.py file.pdf --out out --no-images
 python scripts/pdf_to_semantic_html.py file.pdf --out out --no-toc
 ```
 
-Keep original PDF TOC pages in the body (default is to skip them):
+### Keep Original PDF TOC Pages
 
 ```bash
 python scripts/pdf_to_semantic_html.py file.pdf --out out --keep-toc-pages
 ```
 
-Override metadata:
+### Override Metadata
 
 ```bash
 python scripts/pdf_to_semantic_html.py file.pdf \
@@ -51,7 +51,7 @@ python scripts/pdf_to_semantic_html.py file.pdf \
   --keywords "EMI, electromobility"
 ```
 
-Metadata JSON (optional):
+### Metadata JSON (Optional)
 
 ```json
 {
@@ -68,6 +68,35 @@ Metadata JSON (optional):
 ```bash
 python scripts/pdf_to_semantic_html.py file.pdf --metadata metadata.json
 ```
+
+## 🎨 Gradio Web App
+
+**New!** Drag-and-drop web interface with live preview!
+
+### Launch the App
+
+```bash
+# Make sure Gradio is installed
+pip install gradio
+
+# Launch the app
+python gradio_app.py
+```
+
+The app will open at: **http://localhost:7860**
+
+### Features
+
+- 📤 **Drag and drop** - Upload PDF files directly
+- 📁 **Batch processing** - Select a folder containing multiple PDFs
+- 🎯 **Custom options** - Body-only, skip TOC, multiple themes
+- 👁 **Live preview** - See results instantly in browser
+- 📋 **Copy CLI** - Get the command for automation
+- 🚀 **Deploy to Vercel** - One-click deployment instructions
+
+### Quick Start
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed Gradio setup and deployment instructions.
 
 ## Output
 
