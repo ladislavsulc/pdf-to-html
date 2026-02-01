@@ -27,30 +27,6 @@ REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = str(REPO_ROOT / "out")
 CONVERTER_SCRIPT = str(REPO_ROOT / "scripts" / "pdf_to_semantic_html.py")
 
-# Reverse-proxy friendly settings
-PUBLIC_ROOT_URL = os.environ.get("PUBLIC_ROOT_URL", "").rstrip("/")
-GRADIO_ROOT_PATH = os.environ.get("GRADIO_ROOT_PATH", "").rstrip("/")
-GRADIO_SERVER_NAME = os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0")
-
-# Debug: Print environment variables
-print(f"PUBLIC_ROOT_URL: {PUBLIC_ROOT_URL}")
-print(f"GRADIO_ROOT_PATH: {GRADIO_ROOT_PATH}")
-print(f"GRADIO_SERVER_NAME: {GRADIO_SERVER_NAME}")
-
-if GRADIO_ROOT_PATH == "/gradio_api":
-    # Gradio uses /gradio_api internally for API routes. Setting root_path to
-    # this value causes startup URL checks to fail with 404 on newer versions.
-    print("Warning: ignoring GRADIO_ROOT_PATH=/gradio_api to avoid startup-events 404")
-    ROOT_PATH = None
-elif GRADIO_ROOT_PATH:
-    ROOT_PATH = GRADIO_ROOT_PATH
-elif PUBLIC_ROOT_URL:
-    ROOT_PATH = PUBLIC_ROOT_URL
-else:
-    ROOT_PATH = None
-
-print(f"ROOT_PATH: {ROOT_PATH}")
-
 # Set up environment with user's site-packages
 ENV = os.environ.copy()
 USER_SITE = os.path.expanduser('~/.local/lib/python3.12/site-packages')
@@ -349,14 +325,12 @@ def handle_batch(folder_path, output_dir, no_images, no_toc, keep_toc_pages):
 
 if __name__ == "__main__":
     print(f"✅ Converter found: {CONVERTER_SCRIPT}")
-    print(f"Starting Gradio with root_path={ROOT_PATH}, server_name={GRADIO_SERVER_NAME}")
     demo = create_ui()
     demo.launch(
-        server_name=GRADIO_SERVER_NAME,
+        server_name="0.0.0.0",
         server_port=7860,
         share=False,
         show_error=True,
-        root_path=ROOT_PATH,
         theme=gr.themes.Soft(),
         css="""
         #status-box textarea {font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
